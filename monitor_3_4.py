@@ -159,10 +159,9 @@ def set_adults(page, count):
             interim = page.evaluate(VERIFY_ADULTS_JS, expected)
             if not interim["matchCount"]:
                 return {"ok": False, "reason": f"Après clic, le résumé '{expected} adults' n'est pas confirmé", "clicks": marks, "verify": interim}
-        # Close popup by clicking visible calendar heading, never a day cell.
-        header = page.get_by_text(re.compile(r"^December\s+2026$", re.I)).first
-        if header.count() and header.is_visible():
-            header.click(timeout=3500)
+        # Do not click on the calendar title: the open Participants popup may
+        # intercept that click. DOM inspection works while the popup is open.
+        # Let any participant-dependent calendar update finish before reading.
         page.wait_for_timeout(1200)
         verified = page.evaluate(VERIFY_ADULTS_JS, count)
         if not verified["matchCount"]:

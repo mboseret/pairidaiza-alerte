@@ -1,0 +1,53 @@
+name: Surveiller Pairi Daiza 3 et 4 adultes
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "11,26,41,56 * * * *"
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: pairidaiza-monitor-3-4
+  cancel-in-progress: false
+
+jobs:
+  monitor_3_4:
+    if: github.event_name == 'workflow_dispatch' || vars.ENABLE_MONITOR_34 == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      DIAGNOSTIC: ${{ github.event_name == 'workflow_dispatch' && 'true' || 'false' }}
+      TEST_EMAIL: "false"
+      ENABLE_MONITOR_34: ${{ vars.ENABLE_MONITOR_34 }}
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      SMTP_USER: ${{ secrets.SMTP_USER }}
+      SMTP_APP_PASSWORD: ${{ secrets.SMTP_APP_PASSWORD }}
+      EMAIL_TO: ${{ secrets.EMAIL_TO }}
+    steps:
+      - name: Recuperer les fichiers
+        uses: actions/checkout@v4
+
+      - name: Installer Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Installer Playwright
+        run: |
+          pip install -r requirements.txt
+          python -m playwright install --with-deps chromium
+
+      - name: Verifier 3 et 4 adultes
+        run: python monitor_3_4.py
+
+      - name: Sauvegarder les diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: diagnostic-pairidaiza-3-4-${{ github.run_id }}
+          path: diagnostic_3_4/
+          if-no-files-found: ignore
+          retention-days: 7

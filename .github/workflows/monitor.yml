@@ -31,6 +31,7 @@ jobs:
 
       - name: Vérifier le calendrier
         env:
+          DIAGNOSTIC: "true"
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           ENABLE_MONITOR: ${{ vars.ENABLE_MONITOR }}
           SMTP_USER: ${{ secrets.SMTP_USER }}
@@ -43,5 +44,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: diagnostic-pairidaiza
-          path: artifacts/
+          path: diagnostic/
           if-no-files-found: ignore

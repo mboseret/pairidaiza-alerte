@@ -71,34 +71,41 @@ INSPECT_JS = r"""() => {
 # Find the specific '+' control in the Adults row while the Participants
 # dropdown is open. Only return a marker if there is one unambiguous row.
 MARK_ADULT_PLUS_JS = r"""() => {
-  document.querySelectorAll('[data-pd-adults-plus]').forEach(e=>e.removeAttribute('data-pd-adults-plus'));
-  const clean = s => (s||'').replace(/\s+/g,' ').trim();
-  const labels=[...document.querySelectorAll('body *')].filter(e =>
-    e.children.length===0 && /^Adults\s*(\(\+?\d+\))?$/i.test(clean(e.textContent)) &&
-    e.getBoundingClientRect().width>0);
-  const candidates=[];
-  for(const label of labels){
-    for(let row=label.parentElement,depth=0;row && depth<5;row=row.parentElement,depth++){
-      const bounds=row.getBoundingClientRect();
-      if(bounds.width>650 || bounds.height>130) break;
-      const buttons=[...row.querySelectorAll('button,[role="button"]')].filter(e=>{
-        const b=e.getBoundingClientRect(); return b.width>0&&b.height>0&&!e.disabled;
-      });
-      // The screenshot shows minus and plus, with plus to the right.
-      if(buttons.length===2){
-        const ordered=buttons.sort((a,b)=>a.getBoundingClientRect().x-b.getBoundingClientRect().x);
-        if(ordered[1].getBoundingClientRect().x > ordered[0].getBoundingClientRect().x){
-          candidates.push({row,plus:ordered[1],minus:ordered[0],depth,label:clean(label.textContent),
-            text:clean(row.textContent).slice(0,130)});
-          break;
-        }
-      }
-    }
+  const clean = s => (s || '').replace(/\s+/g, ' ').trim();
+  const visible = e => {const r=e.getBoundingClientRect(); const st=getComputedStyle(e); return r.width>0 && r.height>0 && st.visibility!=='hidden' && st.display!=='none'};
+  // Prefer the smallest element whose text is the Adults label.  This works
+  // even when the guest controls are divs or SVGs instead of HTML buttons.
+  const labels=[...document.querySelectorAll('body *')]
+    .filter(e=>visible(e) && /^Adults(?:\s*\(\+?\d+\))?$/i.test(clean(e.textContent)))
+    .sort((a,b)=>a.getBoundingClientRect().width-b.getBoundingClientRect().width);
+  if (!labels.length) return {ok:false,reason:'Label Adults introuvable',candidates:[]};
+  const label=labels[0], lr=label.getBoundingClientRect();
+  const centerY=lr.top+lr.height/2;
+  // Only examine controls on the very same horizontal Adults line.  The
+  // rightmost circular control in this row is the + in the shown layout.
+  const seen=new Map();
+  for(const e of document.querySelectorAll('body *')) {
+    if (!visible(e) || e===label || e.contains(label)) continue;
+    const r=e.getBoundingClientRect(), cx=r.left+r.width/2, cy=r.top+r.height/2;
+    if(r.width<20||r.width>58||r.height<20||r.height>58) continue;
+    if(Math.abs(cy-centerY)>17) continue;
+    if(cx<lr.right+65||cx>lr.right+560) continue;
+    const k=`${Math.round(cx/5)*5},${Math.round(cy/5)*5}`;
+    const cand={x:cx,y:cy,tag:e.tagName,role:e.getAttribute('role'),
+      text:clean(e.textContent).slice(0,35),className:typeof e.className==='string'?e.className.slice(0,100):''};
+    if(!seen.has(k)) seen.set(k,cand);
   }
-  if(candidates.length!==1) return {ok:false,reason:'Ligne Adults ou boutons +/- ambigus',candidates:candidates.map(x=>x.text)};
-  const choice=candidates[0];
-  choice.plus.setAttribute('data-pd-adults-plus','yes');
-  return {ok:true,reason:'Bouton + identifié',rowText:choice.text};
+  const candidates=[...seen.values()].sort((a,b)=>a.x-b.x);
+  // Expect at least a decrement control and increment control. If the
+  // layout is different, refuse to guess rather than risk a wrong click.
+  if(candidates.length<2) return {ok:false,reason:'Commandes Adults non identifiables',label:clean(label.textContent),candidates};
+  const plus=candidates[candidates.length-1];
+  const previous=candidates[candidates.length-2];
+  if(plus.x-previous.x<15 || plus.x-previous.x>160) {
+    return {ok:false,reason:'Espacement boutons Adults ambigu',candidates};
+  }
+  return {ok:true,reason:'Cible + repérée par position sur ligne Adults',
+          x:plus.x,y:plus.y,label:clean(label.textContent),candidates};
 }"""
 
 # Check that the Participants summary really switched to the intended number.
@@ -147,8 +154,11 @@ def set_adults(page, count):
             marks.append(mark)
             if not mark.get("ok"):
                 return {"ok": False, "reason": mark.get("reason"), "clicks": marks}
-            page.locator('[data-pd-adults-plus="yes"]').click(timeout=3500)
+            page.mouse.click(mark["x"], mark["y"])
             page.wait_for_timeout(900)
+            interim = page.evaluate(VERIFY_ADULTS_JS, expected)
+            if not interim["matchCount"]:
+                return {"ok": False, "reason": f"Après clic, le résumé '{expected} adults' n'est pas confirmé", "clicks": marks, "verify": interim}
         # Close popup by clicking visible calendar heading, never a day cell.
         header = page.get_by_text(re.compile(r"^December\s+2026$", re.I)).first
         if header.count() and header.is_visible():

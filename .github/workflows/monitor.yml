@@ -8,6 +8,7 @@ on:
 
 permissions:
   contents: read
+  issues: write
 
 jobs:
   monitor:
@@ -30,6 +31,7 @@ jobs:
 
       - name: Vérifier le calendrier
         env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           ENABLE_MONITOR: ${{ vars.ENABLE_MONITOR }}
           SMTP_USER: ${{ secrets.SMTP_USER }}
           SMTP_APP_PASSWORD: ${{ secrets.SMTP_APP_PASSWORD }}

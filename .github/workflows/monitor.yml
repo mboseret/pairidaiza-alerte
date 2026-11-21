@@ -8,6 +8,11 @@ on:
         type: boolean
         default: false
         required: false
+      external_live:
+        description: "Vérification réelle déclenchée de l'extérieur"
+        type: boolean
+        default: false
+        required: false
   schedule:
     - cron: "7,22,37,52 * * * *"
 
@@ -24,8 +29,8 @@ jobs:
     if: github.event_name == 'workflow_dispatch' || vars.ENABLE_MONITOR == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 10
-    env:
-      DIAGNOSTIC: ${{ github.event_name == 'workflow_dispatch' && 'true' || 'false' }}
+    env:   
+      DIAGNOSTIC: ${{ github.event_name == 'workflow_dispatch' && inputs.external_live != true && 'true' || 'false' }}
       TEST_EMAIL: ${{ inputs.test_email || 'false' }}
       ENABLE_MONITOR: ${{ vars.ENABLE_MONITOR }}
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

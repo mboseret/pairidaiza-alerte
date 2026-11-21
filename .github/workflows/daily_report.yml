@@ -1,1 +1,32 @@
+name: Pairi Daiza - bilan quotidien
+
+on:
+  workflow_dispatch:
+  schedule:
+    # 07:13 UTC = 08:13 en hiver en Belgique, 09:13 en été.
+    - cron: "13 7 * * *"
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  report:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Récupérer les fichiers
+        uses: actions/checkout@v4
+      - name: Installer Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Envoyer le bilan de 24 h
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_APP_PASSWORD: ${{ secrets.SMTP_APP_PASSWORD }}
+          EMAIL_TO: ${{ secrets.EMAIL_TO }}
+        run: python daily_report.py
 

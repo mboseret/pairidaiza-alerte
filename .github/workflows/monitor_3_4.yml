@@ -2,6 +2,12 @@ name: Surveiller Pairi Daiza 3 et 4 adultes
 
 on:
   workflow_dispatch:
+    inputs:
+      external_live:
+        description: "Vérification réelle déclenchée de l'extérieur"
+        type: boolean
+        default: false
+        required: false
   schedule:
     - cron: "11,26,41,56 * * * *"
 
@@ -19,7 +25,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     env:
-      DIAGNOSTIC: ${{ github.event_name == 'workflow_dispatch' && 'true' || 'false' }}
+      DIAGNOSTIC: ${{ github.event_name == 'workflow_dispatch' && inputs.external_live != true && 'true' || 'false' }}
       TEST_EMAIL: "false"
       ENABLE_MONITOR_34: ${{ vars.ENABLE_MONITOR_34 }}
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
